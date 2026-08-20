@@ -19,53 +19,6 @@ Currently supported:
 | Java (source)     | `javasrc2cpg`   | `slicers/java.sc`      | `java-security-analyst`       |
 | Java (bytecode)   | `jimple2cpg`    | `slicers/java.sc`      | `java-security-analyst`       |
 
-**JavaScript and TypeScript share one frontend (`jssrc2cpg`) and one slicer.** It
-covers Express/Connect/Koa/Fastify/Restify route registrations (`ROUTE_HTTP`),
-NestJS / routing-controllers decorators (`ROUTE_DECORATED`), Next.js API routes
-(`HANDLER_EXPORT`), `*Controller` classes (`CONTROLLER`), and a `req`/`ctx`/`event`
-request-input catch-all (`INPUT_SOURCE`). Like Ruby, `jssrc2cpg`'s call graph is
-**sparse** — downstream slices are often shallow, so a thin slice is **not**
-evidence of safety (the manifest header and skill both flag this). Node auth is
-usually in middleware / NestJS Guards that sit **outside** the handler slice.
-
-**Java has two frontends, picked by input kind.** If `.java` sources are present the
-runner uses `javasrc2cpg` (readable Java bodies). If the input is only compiled
-artifacts (`.jar`/`.war`/`.class`/`.apk`) it uses `jimple2cpg` — whose call graph is
-**well resolved** (unlike Ruby), so downstream slices are trustworthy; method bodies
-are then rendered from the Jimple IR (the prelude falls back to `METHOD.code` when no
-`.java` is readable). One `slicers/java.sc` serves both — the CPG queries are
-identical, only body rendering differs.
-
-## Layout
-
-```
-vending-machine/
-├── run_surface_slices.sh     # entry point: detect → prebuild CPG → slice → name the skill
-├── slicers/
-│   ├── _prelude.sc           # language-agnostic core (CPG load, source read, callee walk, output)
-│   ├── _postlude.sc          # manifest flush + summary
-│   ├── php.sc                # PHP entry-type passes (SCRIPT/ROUTE/CONTROLLER/INPUT_SOURCE)
-│   ├── ruby.sc               # Ruby/Rails + Sinatra passes (ROUTE_RAILS/ROUTE_MICRO/CONTROLLER/INPUT_SOURCE)
-│   ├── javascript.sc        # JS/TS passes (ROUTE_DECORATED/ROUTE_HTTP/HANDLER_EXPORT/CONTROLLER/INPUT_SOURCE)
-│   ├── java.sc               # Java passes (ROUTE_SPRING/ROUTE_JAXRS/ROUTE_SERVLET/CONTROLLER/INPUT_SOURCE)
-│   └── wordpress.sc          # WordPress passes (REST/SHORTCODE/TEMPLATE_HOOK/INIT_HOOK/BLOCK/AJAX_NOPRIV)
-├── .claude/skills/
-│   ├── php-security-analyst/
-│   ├── wp-security-analyst/
-│   ├── ruby-security-analyst/
-│   ├── javascript-security-analyst/
-│   └── java-security-analyst/
-├── cpgs/                     # CPG cache (one .bin per project)
-├── surface_slices/           # output: surface_slices/<project>/manifest.txt + slice files
-└── surface_logs/             # per-app build/run logs
-```
-
-The slice script that actually runs is **assembled at runtime** by concatenating
-`_prelude.sc` + `<lang>.sc` + `_postlude.sc` into one temp file (avoids fragile
-Joern `import $file` mechanics). `_prelude.sc` owns all shared state (`cpg`,
-`manifest`, `emitted`, `usedSlugs`); language fragments only read it and call
-`emit`/`emitUnresolved`. The runner lints fragments to enforce this.
-
 ## Prerequisites
 
 - [**Joern**](https://joern.io/) — install so that `joern` and the language frontends (`php2cpg`, `rubysrc2cpg`, `jssrc2cpg`, `javasrc2cpg`, `jimple2cpg`) are on `PATH`. Alternatively, set `JOERN=` to the `joern` binary and the runner will find the frontends alongside it.
