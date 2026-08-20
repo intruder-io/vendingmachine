@@ -1,0 +1,7 @@
+surface_logs/*
+surface_slices/*
+cpgs/*
+cost_runs/*
+workspace/*
+!**/.gitkeep
+.DS_Store
